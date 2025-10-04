@@ -1,9 +1,10 @@
 # mongo_setup.py
 from pymongo import MongoClient
 from datetime import datetime
+from vars import *
 
 # --- 1) Connect ---
-client = MongoClient("mongodb+srv://new-user31:Qwerty_1234@referbot.up0ih5x.mongodb.net/?retryWrites=true&w=majority&appName=referbot")
+client = MongoClient(MONGO_URI)
 db = client["botdb"]
 
 # --- 2) Collections ---
