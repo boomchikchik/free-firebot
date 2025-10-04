@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from datetime import datetime
 
 # --- 1) Connect ---
-client = MongoClient("mongodb://localhost:27017/")
+client = MongoClient("mongodb+srv://new-user31:Qwerty_1234@referbot.up0ih5x.mongodb.net/?retryWrites=true&w=majority&appName=referbot")
 db = client["botdb"]
 
 # --- 2) Collections ---
