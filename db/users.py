@@ -70,6 +70,18 @@ def get_welcome_message():
     doc = settings_col.find_one({"_id": "welcome_message"})
     return doc["value"] if doc else "👋 Welcome!"
 
+def set_stock_message(text):
+    settings_col.update_one(
+        {"_id": "stock_message"},
+        {"$set": {"value": text, "updated_at": datetime.utcnow()}},
+        upsert=True
+    )
+
+def get_stock_message():
+    doc = settings_col.find_one({"_id": "stock_message"})
+    return doc["value"] if doc else "STOCK AVAILABLE"
+
+
 
 # --- 3.1) User existence ---
 def user_exists(user_id) -> bool:
