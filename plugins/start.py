@@ -123,7 +123,7 @@ async def welcome_user(c: Client, m: Message):
   if get_welcome_message().strip() == "👋 Welcome!":
     await m.reply_text(f"❤️ HEY {username}\n🔥 WELCOME TO \n OLD AND FRESH CCS SELLER BOT🔥",reply_markup = keyboard) 
   else:
-    await m.reply_text(f"**❤️ HEY {username}\n{get_welcome_message()**}",reply_markup = keyboard)
+    await m.reply_text(f"**❤️ HEY {username}\n{get_welcome_message()}**",reply_markup = keyboard)
     
     
     
