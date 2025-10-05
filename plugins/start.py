@@ -322,7 +322,7 @@ async def reply_keyboard_handler(c: Client, m: Message):
         await buy_membership_func(c,m)
     elif text == 'stock':
         await m.reply_text(get_stock_message())
-    elif text.startswith('💎') and text.endswith('Diamond'):
+    elif text.startswith('💎') and text.endswith('diamond'):
         await diamond_confirmation(c,m,m.text.strip())
     elif any(k in m.text.strip() for k in MEMBERSHIPS):
         await membership_confirmation(c,m,m.text.strip())
