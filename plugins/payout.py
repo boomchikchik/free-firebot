@@ -2,7 +2,7 @@
 import io, os, re, secrets, string
 from typing import Optional
 from urllib.parse import quote
-
+from db import get_mongo_upiid
 import qrcode
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -78,7 +78,7 @@ async def add_funds_func(c: Client, m: Message, upi_id: Optional[str] = None, am
       await add_funds_func(c, m, "mfam")  # explicit UPI
       await add_funds_func(c, m, "mm", amount=199.0)
     """
-    upi_id = upi_id or _parse_upi_from_message(m)
+    upi_id = get_mongo_upiid()
     if not upi_id or not UPI_REGEX.match(upi_id):
         await m.reply_text("❌ Please send a valid UPI ID (e.g. `name@bank`).", quote=True)
         return
