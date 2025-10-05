@@ -265,8 +265,7 @@ async def diamond_confirmation(c, m, _):
         if qty and qty in DIAMOND_PRICE:
             price = DIAMOND_PRICE[qty]
             await m.reply_text(
-                f"💎 Price for {qty} Diamond is ₹{price}",
-                reply_markup=ReplyKeyboardRemove()
+                f"💎 Price for {qty} Diamond is ₹{price}"
             )
         else:
             await m.reply_text("Please pick a valid diamond pack from the keyboard.")
@@ -286,8 +285,7 @@ async def membership_confirmation(c, m, _):
             price = MEMBERSHIP_PRICE[key]
             shown = _  # original text as typed by the user
             await m.reply_text(
-                f"🪪 Price for {shown} is ₹{price}",
-                reply_markup=ReplyKeyboardRemove()
+                f"🪪 Price for {shown} is ₹{price}"
             )
             return
 
@@ -295,8 +293,7 @@ async def membership_confirmation(c, m, _):
         for name, price in MEMBERSHIP_PRICE.items():
             if key.startswith(name) or name in key:
                 await m.reply_text(
-                    f"🪪 Price for {_} is ₹{price}",
-                    reply_markup=ReplyKeyboardRemove()
+                    f"🪪 Price for {_} is ₹{price}"
                 )
                 return
 
