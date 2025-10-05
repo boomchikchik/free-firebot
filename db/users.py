@@ -81,6 +81,17 @@ def get_stock_message():
     doc = settings_col.find_one({"_id": "stock_message"})
     return doc["value"] if doc else "STOCK AVAILABLE"
 
+def set_upi_id(text):
+    settings_col.update_one(
+        {"_id": "UPI_ID"},
+        {"$set": {"value": text, "updated_at": datetime.utcnow()}},
+        upsert=True
+    )
+
+def get_mongo_upiid():
+    doc = settings_col.find_one({"_id": "UPI_ID"})
+    return doc["value"] if doc else "paytm.s1t27vx@pty"
+
 
 
 # --- 3.1) User existence ---
