@@ -170,6 +170,10 @@ async def fs_try_again_handler(c: Client, q: CallbackQuery):
         await q.message.reply_text("✅ You’re verified. Welcome!")
     await welcome_user(c,q.message)
 
+@Client.on_callback_query(filters.regex("ADDADA FUNDS"))
+async def fdghfgh_ddsgs(c,q):
+    await add_funds_func(c,q.message)
+    
 
 @Client.on_message(filters.private & filters.text)
 async def reply_keyboard_handler(c: Client, m: Message):
@@ -178,7 +182,7 @@ async def reply_keyboard_handler(c: Client, m: Message):
     if text == 'add funds':
         await add_funds_func(c,m)
     elif text == 'buy diamonds':
-        buy_diamond_func(c,m)
+        await buy_diamond_func(c,m)
     elif text == 'check balance':
         keyboard_in = InlineKeyboardMarkup([[InlineKeyboardButton(text='➕ADD FUNDS', callback_data="ADDADA FUNDS") ]])
         await m.reply_text("**💳 YOUR BALANCE \n 💰 Available:**"+f" `{get_balance(m.chat.id)}` Rs"+"\n🔄 Click below to add funds ",reply_markup=keyboard_in)
