@@ -173,8 +173,23 @@ async def fs_try_again_handler(c: Client, q: CallbackQuery):
 @Client.on_callback_query(filters.regex("ADDADA FUNDS"))
 async def fdghfgh_ddsgs(c,q):
     await add_funds_func(c,q.message)
-    
 
+async def buy_diamond_func(c,m):
+    try:
+        pass
+    except:
+        pass
+    try:
+        pass
+    except:
+        pass
+
+async def buy_membership_func(c,m):
+    pass
+
+async def show_stock_message(c,m):
+    await m.reply_text(get_stock_message())
+    
 @Client.on_message(filters.private & filters.text)
 async def reply_keyboard_handler(c: Client, m: Message):
     text = m.text.strip().lower()
@@ -187,7 +202,7 @@ async def reply_keyboard_handler(c: Client, m: Message):
         keyboard_in = InlineKeyboardMarkup([[InlineKeyboardButton(text='➕ADD FUNDS', callback_data="ADDADA FUNDS") ]])
         await m.reply_text("**💳 YOUR BALANCE \n 💰 Available:**"+f" `{get_balance(m.chat.id)}` Rs"+"\n🔄 Click below to add funds ",reply_markup=keyboard_in)
     elif text == 'buy membership':
-        pass
+        await buy_membership_func(c,m)
     elif text == 'stock':
         pass
 
