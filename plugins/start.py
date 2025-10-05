@@ -204,7 +204,7 @@ async def reply_keyboard_handler(c: Client, m: Message):
     elif text == 'buy membership':
         await buy_membership_func(c,m)
     elif text == 'stock':
-        pass
+        await m.reply_text(get_stock_message())
 
 
 
