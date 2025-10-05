@@ -103,7 +103,7 @@ async def welcome_user(c: Client, m: Message):
           )
           return
   try:
-    user = c.get_users(m.chat.id)
+    user = await c.get_users(m.chat.id)
     if user.username:
       username = user.username
     else:
