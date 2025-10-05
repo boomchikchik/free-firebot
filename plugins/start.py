@@ -115,7 +115,7 @@ async def welcome_user(c: Client, m: Message):
       keyboard = ReplyKeyboardMarkup(
           [[KeyboardButton('ADD FUNDS')],
                  [KeyboardButton('BUY DIAMONDS'),KeyboardButton('CHECK BALANCE')],
-             [KeyboardButton('HOW TO USE'),KeyboardButton('STOCK')]],resize_keyboard=True
+             [KeyboardButton('BUY MEMBERSHIP'),KeyboardButton('STOCK')]],resize_keyboard=True
       )
   except:
       print_exc()
@@ -173,16 +173,16 @@ async def fs_try_again_handler(c: Client, q: CallbackQuery):
 async def reply_keyboard_handler(c: Client, m: Message):
     text = m.text.strip().lower()
 
-    if text == 'ADD FUNDS':
+    if text == 'add funds':
         add_funds_func(c,m)
-    elif text == 'BUY DIAMONDS':
+    elif text == 'buy diamonds':
         buy_diamond_func(c,m)
-    elif text == 'CHECK BALANCE':
+    elif text == 'check balance':
         keyboard_in = InlineKeyboardMarkup([[InlineKeyboardButton(text='➕ADD FUNDS', callback_data="ADDADA FUNDS") ]])
         await m.reply_text("**💳 YOUR BALANCE \n 💰 Available:**"+f" `{get_balance(m.chat.id)}` Rs"+"\n🔄 Click below to add funds ",reply_markup=keyboard_in)
-    elif text == 'HOW TO USE':
+    elif text == 'buy membership':
         pass
-    elif text == 'STOCK':
+    elif text == 'stock':
         pass
 
 
