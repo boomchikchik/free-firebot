@@ -105,9 +105,9 @@ async def welcome_user(c: Client, m: Message):
   try:
     user = await c.get_users(m.chat.id)
     if user.username:
-      username = user.username
+      username = '@'+ user.username
     else:
-      username = 'USER'
+      username = user.first_name
   except:
      print_exc()
      username= 'USER'
@@ -171,7 +171,9 @@ async def fs_try_again_handler(c: Client, q: CallbackQuery):
 
 @Client.on_message(filters.private & filters.text)
 async def reply_keyboard_handler(c: Client, m: Message):
-    pass
+    text = m.text.strip().lower()
+
+    
 
 
 
