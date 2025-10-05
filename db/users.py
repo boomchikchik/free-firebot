@@ -24,7 +24,27 @@ def add_user(user_id, username=None, status="unban"):
     )
 
 def set_status(user_id, status):
-    users_col.update_one({"user_id": user_id}, {"$set": {"status": status}})
+    """
+    Set user's status to 'ban' or 'unban'.
+    Returns the new status string.
+    """
+    if status not in ("ban", "unban"):
+        raise ValueError("status must be 'ban' or 'unban'")
+    users_col.update_one(
+        {"user_id": user_id},
+        {"$set": {"status": status}},
+        upsert=True
+    )
+    return status
+
+
+def get_status(user_id):
+    """
+    Return the user's current status ('ban'/'unban'), or None if not found.
+    """
+    doc = users_col.find_one({"user_id": user_id}, {"status": 1, "_id": 0})
+    return doc.get("status") if doc else None
+
 
 # Balances
 def set_balance(user_id, amount):
