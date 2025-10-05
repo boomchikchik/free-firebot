@@ -97,6 +97,8 @@ async def add_funds_func(c: Client, m: Message, upi_id: Optional[str] = None, am
         reply_markup=_kb(token)
     )
 
+
+
 # ================== CALLBACKS ==================
 @Client.on_callback_query(filters.regex(r"^addfunds:newqr:"))
 async def cb_new_qr(c: Client, q: CallbackQuery):
@@ -141,5 +143,7 @@ async def cb_paid(c: Client, q: CallbackQuery):
         await q.message.edit_reply_markup(None)
     except Exception:
         pass
+    finally:
+        del ADD_FUNDS_STATE[token]
 
     await q.answer("We’ll notify you after confirmation.")
