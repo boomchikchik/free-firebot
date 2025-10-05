@@ -120,7 +120,7 @@ async def welcome_user(c: Client, m: Message):
   except:
       print_exc()
       await message.reply_text('ERROR OCCURRED UNABLE TO OPEN KEYBOARD')
-  if get_welcome_message().strip() == "👋 Welcome!"
+  if get_welcome_message().strip() == "👋 Welcome!":
     await m.reply_text(f"❤️ HEY {username}\n🔥 WELCOME TO \n OLD AND FRESH CCS SELLER BOT🔥",reply_markup = keyboard) 
   else:
     await m.reply_text(f"**❤️ HEY {username}"+f"**{get_welcome_message()**}",reply_markup = keyboard)
