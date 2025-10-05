@@ -175,7 +175,7 @@ async def reply_keyboard_handler(c: Client, m: Message):
     text = m.text.strip().lower()
 
     if text == 'add funds':
-        add_funds_func(c,m)
+        await add_funds_func(c,m)
     elif text == 'buy diamonds':
         buy_diamond_func(c,m)
     elif text == 'check balance':
