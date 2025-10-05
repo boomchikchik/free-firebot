@@ -110,7 +110,7 @@ async def welcome_user(c: Client, m: Message):
   except:
      username= 'USER'
   
-  await message.reply_text(f"❤️ HEY {username}\n🔥 WELCOME TO \n OLD AND FRESH CCS SELLER BOT🔥")
+  await m.reply_text(f"❤️ HEY {username}\n🔥 WELCOME TO \n OLD AND FRESH CCS SELLER BOT🔥")
     
     
   
