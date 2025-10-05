@@ -4,6 +4,7 @@ from pyromod import Client
 from pyrogram import filters
 from pyrogram.errors import UserNotParticipant, ChatAdminRequired, ChatWriteForbidden
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton,ReplyKeyboardRemove
 from pyrogram.types import Message, CallbackQuery
 from traceback import print_exc
 from pyromod import listen
@@ -108,9 +109,19 @@ async def welcome_user(c: Client, m: Message):
     else:
       username = 'USER'
   except:
+     print_exc()
      username= 'USER'
-  
-  await m.reply_text(f"❤️ HEY {username}\n🔥 WELCOME TO \n OLD AND FRESH CCS SELLER BOT🔥")
+  try:
+      keyboard = ReplyKeyboardMarkup(
+          [[KeyboardButton('ADD FUNDS')],
+                 [KeyboardButton('BUY DIAMONDS'),KeyboardButton('CHECK BALANCE')],
+             [KeyboardButton('HOW TO USE'),KeyboardButton('STOCK')]],resize_keyboard=True
+      )
+  if get_welcome_message().strip() == "👋 Welcome!"
+    await m.reply_text(f"❤️ HEY {username}\n🔥 WELCOME TO \n OLD AND FRESH CCS SELLER BOT🔥",reply_markup = keyboard) 
+  else:
+    await m.reply_text(f"**❤️ HEY {username}"+f"**{get_welcome_message()**}",reply_markup = keyboard)
+    
     
     
   
@@ -154,6 +165,10 @@ async def fs_try_again_handler(c: Client, q: CallbackQuery):
         await q.message.reply_text("✅ You’re verified. Welcome!")
     await welcome_user(c,q.message)
 
+
+@Client.on_message(filters.private & filters.text)
+async def reply_keyboard_handler(c: Client, m: Message):
+    pass
 
 
 
