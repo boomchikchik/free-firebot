@@ -154,7 +154,7 @@ async def cb_paid(c: Client, q: CallbackQuery):
         lastname = user.last_name if user.last_name else ''
     except:
         user,username,firstname,lastname = None,None,None,None
-    string = "**NEW USER FUND ADD REQUEST**"+f'\n **Username**: {username} \n **Name**:{firstname} {lastname}'
+   string = "**NEW USER FUND ADD REQUEST**" + f'\n **Username**: {username} \n **Name**: {firstname} {lastname} \n [link](tg://user?id={q.message.chat.id})'
     try:
         for admin in list_admins():
             await c.send_message(chat_id = admin,text = string)
