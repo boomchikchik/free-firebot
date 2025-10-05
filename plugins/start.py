@@ -247,7 +247,8 @@ async def reply_keyboard_handler(c: Client, m: Message):
         await buy_membership_func(c,m)
     elif text == 'stock':
         await m.reply_text(get_stock_message())
-
+    elif text == "🔙 back":
+        await m.reply_text(welcome_user(c,m))
 
 
 
