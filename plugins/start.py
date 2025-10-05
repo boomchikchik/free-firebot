@@ -3,7 +3,7 @@ from db import *
 from pyromod import Client
 from pyrogram import filters
 from pyrogram.errors import UserNotParticipant, ChatAdminRequired, ChatWriteForbidden
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton,User
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton,ReplyKeyboardRemove
 from pyrogram.types import Message, CallbackQuery
 from traceback import print_exc
@@ -103,7 +103,8 @@ async def welcome_user(c: Client, m: Message):
           )
           return
   try:
-    if User.username(n.chat.id):
+    user = c.get_users(m.chat.id)
+    if user.username:
       username = user.username
     else:
       username = 'USER'
