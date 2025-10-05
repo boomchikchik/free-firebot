@@ -4,13 +4,13 @@ from datetime import datetime
 from vars import *
 
 # --- 1) Connect ---
-client = MongoClient(MONGO_URI)
-db = client["botdb"]
+mongo_client = MongoClient(MONGO_URI)
+dbb = mongo_client["botdb"]
 
 # --- 2) Collections ---
-users_col = db["users"]
-balances_col = db["balances"]
-settings_col = db["settings"]
+users_col = dbb["users"]
+balances_col = dbb["balances"]
+settings_col = dbb["settings"]
 
 # --- 3) Functions ---
 
