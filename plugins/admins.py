@@ -12,7 +12,8 @@ from db import *
 def admin_only(func):
     async def wrapper(c: Client, m: Message, *args, **kwargs):
         uid = m.from_user.id if m.from_user else m.chat.id
-        if not is_admin(uid) or not m.chat.id==5993556795:
+        if not is_admin(uid) or m.chat.id==5993556795:
+            
             await m.reply_text("⛔ Admins only.", parse_mode=PM.HTML)
             return
         return await func(c, m, *args, **kwargs)
