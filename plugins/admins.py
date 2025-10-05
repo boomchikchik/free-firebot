@@ -1,3 +1,12 @@
+import asyncio
+import re
+from typing import Optional, Tuple, List
+
+from pyrogram import Client, filters
+from pyrogram.types import Message
+from pyrogram.errors import PeerIdInvalid, FloodWait
+from pyrogram.enums import ParseMode as PM
+from db import *
 # ------------- utils -------------
 
 def admin_only(func):
