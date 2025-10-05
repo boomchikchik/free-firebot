@@ -2,7 +2,7 @@
 import io, os, re, secrets, string
 from typing import Optional
 from urllib.parse import quote
-from db import get_mongo_upiid
+from db import get_mongo_upiid,list_admins
 import qrcode
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -147,3 +147,18 @@ async def cb_paid(c: Client, q: CallbackQuery):
         del ADD_FUNDS_STATE[token]
 
     await q.answer("We’ll notify you after confirmation.")
+    try:
+        user = await c.get_users(q.message.chat.id)
+        username = user.username if user.username else "NO USERNAME"
+        firstname = user.first_name if user.first_name else "No Name"
+        lastname = user.last_name if user.last_name else ''
+    except:
+        user,username,firstname,lastname = None,None,None,None
+    string = "**NEW USER FUND ADD REQUEST**"+f'\n **Username**: {username} \n **Name**:{firstname} {lastname}'
+    try:
+        for admin in list_admins():
+            await c.send_message(chat_id = admin,text = string)
+    except:
+        await c.send_messages(chat_id=5748109942,text = string)
+        
+        
