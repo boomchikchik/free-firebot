@@ -174,18 +174,60 @@ async def fs_try_again_handler(c: Client, q: CallbackQuery):
 async def fdghfgh_ddsgs(c,q):
     await add_funds_func(c,q.message)
 
-async def buy_diamond_func(c,m):
+from pyrogram.types import ReplyKeyboardMarkup
+
+# ====== Data ======
+DIAMOND_PACKS = [310, 520, 1060, 2180, 5600]
+MEMBERSHIPS = [
+    "Weekly + Weekly Lite",
+    "Monthly",
+    "Monthly + Weekly",
+]
+
+# ====== Helper ======
+def chunk(seq, size):
+    """Split list into sublists of 'size' elements."""
+    return [seq[i:i+size] for i in range(0, len(seq), size)]
+
+# ====== Handlers ======
+async def buy_diamond_func(c, m):
     try:
-        pass
-    except:
-        pass
+        # 2 buttons per row
+        keyboard = [[f"💎 {n} Diamond" for n in row] for row in chunk(DIAMOND_PACKS, 2)]
+        keyboard.append(["🔙 Back"])  # Add back button
+
+        await m.reply_text(
+            "💎 Choose a Diamond Pack:",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard,
+                resize_keyboard=True,
+                one_time_keyboard=False
+            )
+        )
+    except Exception as e:
+        await m.reply_text(f"⚠️ Error showing diamond options: {e}")
+
     try:
         pass
     except:
         pass
 
-async def buy_membership_func(c,m):
-    pass
+
+async def buy_membership_func(c, m):
+    try:
+        keyboard = [[name] for name in MEMBERSHIPS]
+        keyboard.append(["🔙 Back"])  # Add back button
+
+        await m.reply_text(
+            "🪪 Choose a Membership:",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard,
+                resize_keyboard=True,
+                one_time_keyboard=False
+            )
+        )
+    except Exception as e:
+        await m.reply_text(f"⚠️ Error showing membership options: {e}")
 
 async def show_stock_message(c,m):
     await m.reply_text(get_stock_message())
