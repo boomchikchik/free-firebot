@@ -1,7 +1,7 @@
 from bot import marimo as app
 from db import *
 from pyromod import Client
-
+import re
 from pyrogram import filters
 from pyrogram.errors import UserNotParticipant, ChatAdminRequired, ChatWriteForbidden
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -229,6 +229,81 @@ async def buy_membership_func(c, m):
     except Exception as e:
         await m.reply_text(f"⚠️ Error showing membership options: {e}")
 
+# ====== Price maps (from your image) ======
+DIAMOND_PRICE = {
+    310: 135,
+    520: 175,
+    1060: 375,
+    2180: 669,
+    5600: 1249,
+}
+
+MEMBERSHIP_PRICE = {
+    "weekly + weekly lite": 135,
+    "monthly": 499,
+    "monthly + weekly": 599,
+}
+
+def _clean(s: str) -> str:
+    """Basic normalizer for membership text."""
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+def _extract_int(s: str) -> int | None:
+    """Get the first integer in a string, e.g. '💎 310 Diamond' -> 310."""
+    m = re.search(r"\d+", s)
+    return int(m.group()) if m else None
+
+
+# ============ CONFIRMATION HANDLERS ============
+async def diamond_confirmation(c, m, _):
+    """
+    _: e.g. '💎 310 Diamond', '310 Diamond', 'Diamond 520', etc.
+    Replies: 'Price for 310 Diamond is ₹135'
+    """
+    try:
+        qty = _extract_int(_ or "")
+        if qty and qty in DIAMOND_PRICE:
+            price = DIAMOND_PRICE[qty]
+            await m.reply_text(
+                f"💎 Price for {qty} Diamond is ₹{price}",
+                reply_markup=ReplyKeyboardRemove()
+            )
+        else:
+            await m.reply_text("Please pick a valid diamond pack from the keyboard.")
+    except Exception as e:
+        await m.reply_text(f"⚠️ Couldn't fetch diamond price. Error: {e}")
+
+
+async def membership_confirmation(c, m, _):
+    """
+    _: one of 'Weekly + Weekly Lite', 'Monthly', 'Monthly + Weekly'
+    Replies: 'Price for Weekly + Weekly Lite is ₹135'
+    """
+    try:
+        key = _clean(_ or "")
+        # try exact
+        if key in MEMBERSHIP_PRICE:
+            price = MEMBERSHIP_PRICE[key]
+            shown = _  # original text as typed by the user
+            await m.reply_text(
+                f"🪪 Price for {shown} is ₹{price}",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            return
+
+        # try fuzzy (starts with or contains)
+        for name, price in MEMBERSHIP_PRICE.items():
+            if key.startswith(name) or name in key:
+                await m.reply_text(
+                    f"🪪 Price for {_} is ₹{price}",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+                return
+
+        await m.reply_text("Please pick a valid membership from the keyboard.")
+    except Exception as e:
+        await m.reply_text(f"⚠️ Couldn't fetch membership price. Error: {e}")
+
 async def show_stock_message(c,m):
     await m.reply_text(get_stock_message())
     
@@ -247,6 +322,10 @@ async def reply_keyboard_handler(c: Client, m: Message):
         await buy_membership_func(c,m)
     elif text == 'stock':
         await m.reply_text(get_stock_message())
+    elif text.startswith('💎') and text.endswith('Diamond'):
+        await diamond_confirmation(c,m,m.text.strip())
+    elif any(k in m.text.strip() for k in MEMBERSHIPS):
+        await membership_confirmation(c,m,m.text.strip())
     elif m.text == "🔙 Back":
        await welcome_user(c,m)
 
