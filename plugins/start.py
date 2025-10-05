@@ -117,6 +117,9 @@ async def welcome_user(c: Client, m: Message):
                  [KeyboardButton('BUY DIAMONDS'),KeyboardButton('CHECK BALANCE')],
              [KeyboardButton('HOW TO USE'),KeyboardButton('STOCK')]],resize_keyboard=True
       )
+  except:
+      print_exc()
+      await message.reply_text('ERROR OCCURRED UNABLE TO OPEN KEYBOARD')
   if get_welcome_message().strip() == "👋 Welcome!"
     await m.reply_text(f"❤️ HEY {username}\n🔥 WELCOME TO \n OLD AND FRESH CCS SELLER BOT🔥",reply_markup = keyboard) 
   else:
