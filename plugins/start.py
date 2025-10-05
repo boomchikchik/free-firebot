@@ -10,8 +10,7 @@ from pyrogram.types import Message, CallbackQuery
 from traceback import print_exc
 from pyromod import listen
 from typing import List, Tuple, Optional
-from plugins.payout import ‎add_funds_func 
-
+from plugins.payout import add_funds_func
 import asyncio 
 
 
