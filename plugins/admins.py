@@ -12,9 +12,9 @@ from db import *
 def admin_only(func):
     async def wrapper(c: Client, m: Message, *args, **kwargs):
         uid = m.from_user.id if m.from_user else m.chat.id
-        # if not is_admin(uid):
-        #     await m.reply_text("⛔ Admins only.", parse_mode=PM.HTML)
-        #     return
+        if not is_admin(uid):
+            await m.reply_text("⛔ Admins only.", parse_mode=PM.HTML)
+            return
         return await func(c, m, *args, **kwargs)
     return wrapper
 
