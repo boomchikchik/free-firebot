@@ -180,8 +180,6 @@ async def reply_keyboard_handler(c: Client, m: Message):
     elif text == 'CHECK BALANCE':
         keyboard_in = InlineKeyboardMarkup([[InlineKeyboardButton(text='➕ADD FUNDS', callback_data="ADDADA FUNDS") ]])
         await m.reply_text("**💳 YOUR BALANCE \n 💰 Available:**"+f" `{get_balance(m.chat.id)}` Rs"+"\n🔄 Click below to add funds ",reply_markup=keyboard_in)
-
-🔄 Click below to add funds
     elif text == 'HOW TO USE':
         pass
     elif text == 'STOCK':
