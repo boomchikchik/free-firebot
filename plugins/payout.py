@@ -304,7 +304,7 @@ async def cb_fund_review(c: Client, q: CallbackQuery):
         await c.send_message(
             user_id,
             user_msg,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🆘 Support", url=SUPPORT_LINK)]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🆘 Support", callback_data="support:open")]]),
             parse_mode=PM.HTML
         )
         await q.answer("Rejected.", show_alert=False)
