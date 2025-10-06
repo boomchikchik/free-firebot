@@ -145,7 +145,7 @@ def _kb_after_paid(token: str, upi_link: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔄 New QR", callback_data=f"addfunds:newqr:{token}"),
             InlineKeyboardButton("💳 Pay Link", url=upi_link),
         ],
-        [InlineKeyboardButton("🆘 Support", url=SUPPORT_LINK)]
+        [InlineKeyboardButton("🆘 Support", callback_data="support:open")]
     ])
 
 def _admin_review_kb(token: str, user_id: int) -> InlineKeyboardMarkup:
