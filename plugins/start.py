@@ -24,9 +24,9 @@ async def check_user_channel_membership(client: Client, user_id: int, CHANNEL_ID
         try:
             m = await client.get_chat_member(channel_id, user_id)
             status = getattr(m, "status", None)
-            print(status)
+            status = str(status)
             # consider these as joined
-            if status not in (ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR):
+            if status not in ('ChatMemberStatus.MEMBER', 'ChatMemberStatus.ADMINISTRATOR', 'ChatMemberStatus.CREATOR'):
                 not_joined.append(channel_id)
         except UserNotParticipant:
             print('block2')
