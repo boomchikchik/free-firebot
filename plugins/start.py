@@ -96,6 +96,7 @@ async def welcome_user(c: Client, m: Message):
 
   if F_SUB:
       all_joined, keyboard = await check_user_channel_membership(c, m.from_user.id, F_SUB)
+      print(all_joined)
       if not all_joined:
           await m.reply_text(
               "🚪 **Access Locked — Join to Use the Bot**\n\n"
