@@ -12,6 +12,7 @@ from pyrogram.types import (
 from pyrogram.enums import ParseMode as PM
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from support import *
 
 # Get current time in India
 india_time = datetime.now(ZoneInfo("Asia/Kolkata"))
