@@ -29,7 +29,7 @@ def kb_admin_reply(user_id: int) -> InlineKeyboardMarkup:
 
 def kb_admin_contact(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("👤 CONTACT USER", url=f"tg://user?id={user_id}")]
+        [InlineKeyboardButton("👤 CONTACT USER", callback_data=f"support:reply:{user_id}")]
     ])
 
 # === helpers ===
