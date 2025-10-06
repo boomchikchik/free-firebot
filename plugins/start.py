@@ -464,6 +464,8 @@ async def reply_keyboard_handler(c: Client, m: Message):
         PENDING_PURCHASE.pop(m.from_user.id, None)
         await m.reply_text("❎ Purchase cancelled.", reply_markup=ReplyKeyboardRemove())
         return
+    elif m.text == "🔙 Back":
+        await welcome_user(c,m)
     
 
 
