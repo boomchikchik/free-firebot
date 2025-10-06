@@ -167,17 +167,18 @@ async def cb_admin_reply(c: Client, q: CallbackQuery):
 
     # Relay admin message to the user (copy preserves media/captions)
     try:
+        await c.send_message(
+            chat_id=user_id,
+            text="👨‍💼 <b>Admin replied.</b> You can respond below. THE MESSAGE BELOW IS SENT BY ADMIN",
+            parse_mode=PM.HTML,
+            reply_markup=kb_user_after_send()
+        )
         await c.copy_message(
             chat_id=user_id,
             from_chat_id=admin_id,
             message_id=reply_msg.id
         )
-        await c.send_message(
-            chat_id=user_id,
-            text="👨‍💼 <b>Admin replied.</b> You can respond below.",
-            parse_mode=PM.HTML,
-            reply_markup=kb_user_after_send()
-        )
+        
         await c.send_message(admin_id, "✅ Sent to user.")
     except Exception:
         await c.send_message(admin_id, "❌ Failed to deliver to user.")
