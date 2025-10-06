@@ -157,7 +157,7 @@ def _admin_review_kb(token: str, user_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton("✅ ACCEPT", callback_data=f"fund:accept:{token}"),
             InlineKeyboardButton("❌ REJECT", callback_data=f"fund:reject:{token}")
         ],
-        [InlineKeyboardButton("👤 CONTACT USER", url=f"tg://user?id={user_id}")]
+        [InlineKeyboardButton("👤 CONTACT USER", callback_data=f"support:reply:{user_id}")]
     ])
 
 # =============== USER: Paid pressed ===============
