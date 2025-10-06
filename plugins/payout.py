@@ -9,6 +9,7 @@ from pyrogram.types import (
     Message, CallbackQuery,
     InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 )
+from pyrogram.enums import ParseMode as PM
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
