@@ -1,7 +1,7 @@
 # support.py
 import asyncio
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Tuple
+from typing import Optional
 
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -9,66 +9,43 @@ from pyrogram.types import (
 )
 from pyrogram.enums import ParseMode as PM
 
-from db import list_admins  # <-- your helper
+# IMPORTANT: somewhere in your app setup:
+# from pyromod import listen  # enables Client.ask()
 
-# ====== Config ======
+from db import list_admins  # your existing helper
+
 IST = timezone(timedelta(hours=5, minutes=30))
-SUPPORT_LINK_TEXT = "🆘 Support"
-SUPPORT_ACTIVE_TEXT = (
-    "🆘 <b>Support mode is ON</b>\n"
-    "Send any text, photos, videos, files, or voice messages.\n"
-    "An admin will reply here.\n\n"
-    "Tap <b>Close</b> to end support mode."
-)
+SUPPORT_TIMEOUT = 300  # seconds for ask()
 
-# Optional external support link (e.g., group or handle).
-SUPPORT_EXTERNAL_URL = None  # e.g. "https://t.me/YourSupportHandle"
-
-# ====== Runtime state ======
-# Users in active support mode
-SUPPORT_ACTIVE_USERS: set[int] = set()
-
-# Map (admin_chat_id, admin_message_id) -> user_id
-# When admin replies to one of these messages, we know which user to send to.
-SUPPORT_LINKS: Dict[Tuple[int, int], int] = {}
-
-# ====== Small keyboards ======
-def kb_user_support_open() -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton("🟢 Open Support", callback_data="support:open")]]
-    if SUPPORT_EXTERNAL_URL:
-        rows.append([InlineKeyboardButton("🔗 External Support", url=SUPPORT_EXTERNAL_URL)])
-    return InlineKeyboardMarkup(rows)
-
-def kb_user_support_active() -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton("🔴 Close", callback_data="support:close")]]
-    if SUPPORT_EXTERNAL_URL:
-        rows.append([InlineKeyboardButton("🔗 External Support", url=SUPPORT_EXTERNAL_URL)])
-    return InlineKeyboardMarkup(rows)
-
-def kb_user_after_admin_reply() -> InlineKeyboardMarkup:
-    # Shown to user after admin replies, so they can keep chatting
+# === small keyboards ===
+def kb_user_after_send() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🆘 Reply to Support", callback_data="support:open"),
-         InlineKeyboardButton("🔴 Close", callback_data="support:close")]
+        [InlineKeyboardButton("🆘 Support again", callback_data="support:open")]
     ])
 
-def kb_admin_contact_user(user_id: int) -> InlineKeyboardMarkup:
+def kb_admin_reply(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("👤 Contact User", url=f"tg://user?id={user_id}")]
+        [InlineKeyboardButton("↩️ REPLY TO USER", callback_data=f"support:reply:{user_id}")]
     ])
 
-# ====== Helpers ======
-async def _broadcast_to_admins(c: Client, m: Message):
-    """Send user's message to all admins with a header. Store reply mapping."""
-    user = m.from_user
-    user_id = user.id
-    uname = f"@{user.username}" if user and user.username else "(no username)"
-    full_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or "No Name"
+def kb_admin_contact(user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👤 CONTACT USER", url=f"tg://user?id={user_id}")]
+    ])
+
+# === helpers ===
+async def _broadcast_user_msg_to_admins(c: Client, user_msg: Message):
+    """Send a header + the user's message to all admins, with a REPLY button."""
+    u = user_msg.from_user
+    user_id = u.id
+    uname = f"@{u.username}" if u and u.username else "(no username)"
+    fname = u.first_name or "No"
+    lname = u.last_name or "Name"
     ts = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
 
-    header_text = (
+    header = (
         "<b>📩 Support Message</b>\n"
-        f"• From: <a href='tg://user?id={user_id}'>{full_name}</a> "
+        f"• From: <a href='tg://user?id={user_id}'>{fname} {lname}</a> "
         f"(<code>{user_id}</code>)\n"
         f"• Username: {uname}\n"
         f"• Time (IST): <code>{ts}</code>"
@@ -76,122 +53,132 @@ async def _broadcast_to_admins(c: Client, m: Message):
 
     for admin in list_admins():
         try:
-            # 1) Send header
             hdr = await c.send_message(
                 chat_id=admin,
-                text=header_text,
+                text=header,
                 parse_mode=PM.HTML,
-                disable_web_page_preview=True,
-                reply_markup=kb_admin_contact_user(user_id)
+                reply_markup=kb_admin_contact(user_id),
+                disable_web_page_preview=True
             )
-            # 2) Copy user's message as a reply to header (preserves media)
+            # Copy the user's message (preserves media), and attach REPLY button
             copied = await c.copy_message(
                 chat_id=admin,
-                from_chat_id=m.chat.id,
-                message_id=m.id,
+                from_chat_id=user_msg.chat.id,
+                message_id=user_msg.id,
                 reply_to_message_id=hdr.id
             )
-            # Map both header and copied message to the user for reply detection
-            SUPPORT_LINKS[(admin, hdr.id)] = user_id
-            SUPPORT_LINKS[(admin, copied.id)] = user_id
+            await c.send_message(
+                chat_id=admin,
+                text="Tap to reply to user:",
+                reply_to_message_id=copied.id,
+                reply_markup=kb_admin_reply(user_id),
+                parse_mode=PM.HTML
+            )
         except Exception:
-            # Ignore delivery failures to specific admins
-            pass
+            pass  # ignore failures for specific admins
 
-# ====== Public entry points ======
+# === user entrypoint via callback ===
+@Client.on_callback_query(filters.regex(r"^support:open$"))
+async def cb_support_open(c: Client, q: CallbackQuery):
+    uid = q.from_user.id
+    await q.answer()  # dismiss spinner
 
-# 1) User: start/continue support via command
-@Client.on_message(filters.private & filters.command("support"))
-async def support_cmd(c: Client, m: Message):
-    SUPPORT_ACTIVE_USERS.add(m.from_user.id)
-    await m.reply_text(
-        SUPPORT_ACTIVE_TEXT,
-        parse_mode=PM.HTML,
-        reply_markup=kb_user_support_active()
+    # Prompt + wait for the next message from the user (any type)
+    try:
+        prompt = await c.send_message(
+            chat_id=uid,
+            text=(
+                "🆘 <b>Support</b>\n"
+                "Send your message (text, photo, video, file, voice, etc.).\n"
+                "Send <code>/cancel</code> to abort."
+            ),
+            parse_mode=PM.HTML
+        )
+        user_msg = await c.ask(
+            chat_id=uid,
+            text="⏳ Waiting for your support message…",
+            timeout=SUPPORT_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        await c.send_message(uid, "⌛ Timed out. Tap “Support again” to retry.", reply_markup=kb_user_after_send())
+        return
+    except Exception:
+        await c.send_message(uid, "❌ Something went wrong. Try again.", reply_markup=kb_user_after_send())
+        return
+
+    # Handle cancel
+    if user_msg.text and user_msg.text.strip().lower() in ("/cancel", "cancel"):
+        await c.send_message(uid, "❎ Cancelled. Tap “Support again” to start over.", reply_markup=kb_user_after_send())
+        return
+
+    # Broadcast to admins
+    await _broadcast_user_msg_to_admins(c, user_msg)
+
+    # Ack to the user
+    await c.send_message(
+        chat_id=uid,
+        text="📨 Sent to admins. You’ll receive a reply here.",
+        reply_markup=kb_user_after_send()
     )
 
-# 2) User: open/close via inline buttons
-@Client.on_callback_query(filters.regex(r"^support:(open|close)$"))
-async def support_toggle_cb(c: Client, q: CallbackQuery):
-    action = q.data.split(":")[1]
-    uid = q.from_user.id
+# === admin reply flow (button -> ask admin -> send to user) ===
+@Client.on_callback_query(filters.regex(r"^support:reply:(\d+)$"))
+async def cb_admin_reply(c: Client, q: CallbackQuery):
+    user_id = int(q.matches[0].group(1))  # captured from regex
+    admin_id = q.from_user.id
 
-    if action == "open":
-        SUPPORT_ACTIVE_USERS.add(uid)
-        try:
-            await q.message.edit_text(
-                SUPPORT_ACTIVE_TEXT,
-                parse_mode=PM.HTML,
-                reply_markup=kb_user_support_active()
-            )
-        except Exception:
-            await q.message.reply_text(
-                SUPPORT_ACTIVE_TEXT,
-                parse_mode=PM.HTML,
-                reply_markup=kb_user_support_active()
-            )
-        await q.answer("Support mode enabled.")
-    else:
-        SUPPORT_ACTIVE_USERS.discard(uid)
-        try:
-            await q.message.edit_text("✅ Support mode closed.", parse_mode=PM.HTML)
-        except Exception:
-            await q.message.reply_text("✅ Support mode closed.", parse_mode=PM.HTML)
-        await q.answer("Closed.")
-
-# 3) User: any message while in support mode → relay to admins
-#    (ignore commands starting with '/')
-@Client.on_message(filters.private & ~filters.via_bot & ~filters.bot)
-async def user_support_router(c: Client, m: Message):
-    if m.text and m.text.startswith("/"):
-        return  # let commands be handled elsewhere
-    uid = m.from_user.id if m.from_user else m.chat.id
-    if uid not in SUPPORT_ACTIVE_USERS:
-        return  # not in support mode
-    # Relay message to admins
-    await _broadcast_to_admins(c, m)
-    # Optional ack to user
-    if m.text or m.caption:
-        await m.reply_text("📨 Sent to support. Please wait for a reply.", quote=True)
-
-# 4) Admin: reply to the forwarded/copy message to respond to user
-@Client.on_message(filters.private & filters.reply)
-async def admin_reply_router(c: Client, m: Message):
-    # Only handle if admin and replying to one of the bot's mapped messages
-    admin_id = m.from_user.id if m.from_user else m.chat.id
-    key = (admin_id, m.reply_to_message.id if m.reply_to_message else -1)
-
-    # Check admin privileges — optional if your bot is only used by admins
-    # from db import is_admin
+    # (Optional) guard: only allow admins
     try:
         from db import is_admin
         if not is_admin(admin_id):
+            await q.answer("Admins only.", show_alert=True)
             return
     except Exception:
         pass
 
-    user_id = SUPPORT_LINKS.get(key)
-    if not user_id:
-        return  # not a tracked support reply
+    await q.answer()  # dismiss spinner
 
-    # Ensure user is in active mode (so they can keep chatting)
-    SUPPORT_ACTIVE_USERS.add(user_id)
+    # Ask the admin for any message
+    try:
+        ask_msg = await c.send_message(
+            chat_id=admin_id,
+            text=(
+                f"✍️ Send your reply for <code>{user_id}</code>.\n"
+                "You can send text, media, files, or voice.\n"
+                "Send <code>/cancel</code> to abort."
+            ),
+            parse_mode=PM.HTML
+        )
+        reply_msg = await c.ask(
+            chat_id=admin_id,
+            text="⏳ Waiting for your reply…",
+            timeout=SUPPORT_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        await c.send_message(admin_id, "⌛ Reply timed out.")
+        return
+    except Exception:
+        await c.send_message(admin_id, "❌ Could not read your reply.")
+        return
 
-    # Relay admin's reply to the user (copy to preserve media)
+    # Handle cancel
+    if reply_msg.text and reply_msg.text.strip().lower() in ("/cancel", "cancel"):
+        await c.send_message(admin_id, "❎ Cancelled.")
+        return
+
+    # Relay admin message to the user (copy preserves media/captions)
     try:
         await c.copy_message(
             chat_id=user_id,
-            from_chat_id=m.chat.id,
-            message_id=m.id
+            from_chat_id=admin_id,
+            message_id=reply_msg.id
         )
-        # Also send a tiny prompt so the user can continue easily
         await c.send_message(
             chat_id=user_id,
             text="👨‍💼 <b>Admin replied.</b> You can respond below.",
             parse_mode=PM.HTML,
-            reply_markup=kb_user_after_admin_reply()
+            reply_markup=kb_user_after_send()
         )
-        # Optional ack back to the admin
-        await m.reply_text("✅ Sent to user.", quote=True)
+        await c.send_message(admin_id, "✅ Sent to user.")
     except Exception:
-        await m.reply_text("❌ Failed to deliver to user.", quote=True)
+        await c.send_message(admin_id, "❌ Failed to deliver to user.")
