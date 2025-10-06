@@ -21,7 +21,7 @@ def _rand_id(n: int = 16) -> str:
 
 def _make_upi_link(upi_id: str, pay_id: str, amount: Optional[float] = None) -> str:
     # 'tr' is transaction ref; we embed our pay_id
-    base = f"upi://pay?pa={upi_id}&pn={quote('Payment')}&cu=INR&tr={quote(pay_id)}&tn={quote(pay_id)}"
+    base = f"upi://pay?pa={upi_id}&pn={quote('Payment')}&cu=INR&tr={quote(pay_id)}&tn={pay_id}}"
     if amount is not None:
         base += f"&am={quote(f'{amount:.2f}')}"
     return base
