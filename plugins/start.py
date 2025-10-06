@@ -7,6 +7,7 @@ from pyrogram.errors import UserNotParticipant, ChatAdminRequired, ChatWriteForb
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton,ReplyKeyboardRemove
 from pyrogram.types import Message, CallbackQuery
+from pyrogram.enums import ChatMemberStatus
 from traceback import print_exc
 from pyromod import listen
 from typing import List, Tuple, Optional
