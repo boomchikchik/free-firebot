@@ -14,6 +14,47 @@ from typing import List, Tuple, Optional
 from plugins.payout import add_funds_func
 import asyncio 
 
+# ===================== ADMIN NOTIFY HELPER =====================
+
+def get_admin_ids():
+    """Fetch admin IDs fresh every time (no global variable)."""
+    try:
+        admins = list_admins()   # from db
+    except Exception:
+        admins = []
+
+    ids = []
+    for a in admins or []:
+        try:
+            ids.append(int(a))
+        except Exception:
+            # if db returns dicts or strings
+            if isinstance(a, dict) and "user_id" in a:
+                ids.append(int(a["user_id"]))
+    return list(dict.fromkeys(ids))  # unique
+
+def tg_mention(u):
+    name = (u.first_name or "User").replace("[", "").replace("]", "")
+    return f"[{name}](tg://user?id={u.id})"
+
+async def notify_admins_purchase(c, buyer, item_name: str, price: int, kind: str):
+    """Send purchase info to all current admins."""
+    admin_ids = get_admin_ids()
+    if not admin_ids:
+        return
+    msg = (
+        "🛍️ *New Purchase Confirmed*\n"
+        f"👤 Buyer: {tg_mention(buyer)} (`{buyer.id}`)\n"
+        f"🧾 Item: *{item_name}*\n"
+        f"💸 Amount: ₹{price}\n"
+        f"🏷️ Type: {kind}\n"
+    )
+    for aid in admin_ids:
+        try:
+            await c.send_message(aid, msg, disable_web_page_preview=True)
+        except Exception:
+            pass
+
 
 # === tiny helper: build fsub message & keyboard ===
 # ========= Force-sub checker (returns (bool, InlineKeyboardMarkup|None)) =========
@@ -258,6 +299,57 @@ def _extract_int(s: str) -> int | None:
     m = re.search(r"\d+", s)
     return int(m.group()) if m else None
 
+# ===== Pending purchase context (in-memory) =====
+PENDING_PURCHASE = {}   # { user_id: {"item": str, "price": int, "kind": "diamond|membership"} }
+
+def _deduct_balance_safe(user_id: int, price: int):
+    """Deduct `price` from user's wallet using whatever setter you have."""
+    bal = int(get_balance(user_id))
+    new_bal = bal - int(price)
+    # Try common setter names in your codebase:
+    try:
+        set_balance(user_id, new_bal); return new_bal
+    except Exception:
+        pass
+    try:
+        update_user_balance(user_id, new_bal); return new_bal
+    except Exception:
+        pass
+    # Fallback via delta functions if available
+    try:
+        deduct_balance(user_id, int(price)); return int(get_balance(user_id))
+    except Exception:
+        pass
+    try:
+        add_balance(user_id, -int(price)); return int(get_balance(user_id))
+    except Exception:
+        pass
+    raise RuntimeError("No balance setter found — implement set_balance/update_user_balance/deduct_balance/add_balance.")
+
+async def _ask_confirm_keyboard(m: Message, item_name: str, price: int):
+    kb = ReplyKeyboardMarkup(
+        [["✅ Confirm Purchase"], ["❌ Cancel"], ["🔙 Back"]],
+        resize_keyboard=True
+    )
+    await m.reply_text(
+        f"🛒 *You are purchasing:*\n• {item_name}\n\n💰 *Price:* ₹{price}\n\nProceed?",
+        reply_markup=kb
+    )
+
+async def _start_purchase(c, m, *, item_name: str, price: int, kind: str):
+    user_id = m.from_user.id
+    bal = int(get_balance(user_id))
+    if bal < int(price):
+        kb = ReplyKeyboardMarkup([["ADD FUNDS"], ["🔙 Back"]], resize_keyboard=True)
+        await m.reply_text(
+            f"❌ *Insufficient balance!*\n\n💰 Your balance: ₹{bal}\n🧾 Required: ₹{price}\n\nPlease *ADD FUNDS* and try again.",
+            reply_markup=kb
+        )
+        return
+    # save pending
+    PENDING_PURCHASE[user_id] = {"item": item_name, "price": int(price), "kind": kind}
+    await _ask_confirm_keyboard(m, item_name, price)
+
 
 # ============ CONFIRMATION HANDLERS ============
 async def diamond_confirmation(c, m, _):
@@ -269,9 +361,10 @@ async def diamond_confirmation(c, m, _):
         qty = _extract_int(_ or "")
         if qty and qty in DIAMOND_PRICE:
             price = DIAMOND_PRICE[qty]
-            await m.reply_text(
-                f"💎 Price for {qty} Diamond is ₹{price}"
-            )
+            await _start_purchase(c, m, item_name=f"{qty} Diamond", price=price, kind="diamond")
+            # await m.reply_text(
+            #     f"💎 Price for {qty} Diamond is ₹{price}"
+            # )
         else:
             await m.reply_text("Please pick a valid diamond pack from the keyboard.")
     except Exception as e:
@@ -289,17 +382,19 @@ async def membership_confirmation(c, m, _):
         if key in MEMBERSHIP_PRICE:
             price = MEMBERSHIP_PRICE[key]
             shown = _  # original text as typed by the user
-            await m.reply_text(
-                f"🪪 Price for {shown} is ₹{price}"
-            )
+            await _start_purchase(c, m, item_name=shown, price=price, kind="membership")
+            # await m.reply_text(
+            #     f"🪪 Price for {shown} is ₹{price}"
+            # )
             return
 
         # try fuzzy (starts with or contains)
         for name, price in MEMBERSHIP_PRICE.items():
             if key.startswith(name) or name in key:
-                await m.reply_text(
-                    f"🪪 Price for {_} is ₹{price}"
-                )
+                # await m.reply_text(
+                #     f"🪪 Price for {_} is ₹{price}"
+                # )
+                await _start_purchase(c, m, item_name=_, price=price, kind="membership")
                 return
 
         await m.reply_text("Please pick a valid membership from the keyboard.")
@@ -328,8 +423,48 @@ async def reply_keyboard_handler(c: Client, m: Message):
         await diamond_confirmation(c,m,m.text.strip())
     elif any(k in m.text.strip() for k in MEMBERSHIPS):
         await membership_confirmation(c,m,m.text.strip())
-    elif m.text == "🔙 Back":
-       await welcome_user(c,m)
+        # === Confirm / Cancel purchase ===
+    if m.text == "✅ Confirm Purchase":
+        uid = m.from_user.id
+        ctx = PENDING_PURCHASE.get(uid)
+        if not ctx:
+            await m.reply_text("No pending purchase found.", reply_markup=ReplyKeyboardRemove())
+            return
+        item_name = ctx["item"]
+        price = int(ctx["price"])
+        kind = ctx["kind"]
+        # re-check balance
+        bal = int(get_balance(uid))
+        if bal < price:
+            kb = ReplyKeyboardMarkup([["ADD FUNDS"], ["🔙 Back"]], resize_keyboard=True)
+            await m.reply_text(
+                f"❌ Balance changed — not enough funds.\n\n💰 Balance: ₹{bal}\n🧾 Required: ₹{price}",
+                reply_markup=kb
+            )
+            PENDING_PURCHASE.pop(uid, None)
+            return
+        # deduct
+        try:
+            new_bal = _deduct_balance_safe(uid, price)
+        except Exception as e:
+            await m.reply_text(f"⚠️ Could not debit your wallet. Error: {e}", reply_markup=ReplyKeyboardRemove())
+            return
+# (optional) log_purchase(uid, item_name, price)
+        await m.reply_text(
+            f"✅ *Purchase Successful!*\n\n🧾 Item: {item_name}\n💸 Paid: ₹{price}\n💰 New Balance: ₹{new_bal}",
+            reply_markup=ReplyKeyboardRemove()
+        )# notify admins (you already have notify_admins_purchase in your file)
+        try:
+            await notify_admins_purchase(c, m.from_user, item_name, price, kind)
+        except Exception:
+            pass
+        PENDING_PURCHASE.pop(uid, None)
+        return
+    if m.text == "❌ Cancel":
+        PENDING_PURCHASE.pop(m.from_user.id, None)
+        await m.reply_text("❎ Purchase cancelled.", reply_markup=ReplyKeyboardRemove())
+        return
+    
 
 
 
