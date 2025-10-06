@@ -9,6 +9,11 @@ from pyrogram.types import (
     Message, CallbackQuery,
     InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 )
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+
+# Get current time in India
+india_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 
 # ---- tiny in-memory state: token -> {upi, amount, pay_id}
 ADD_FUNDS_STATE: dict[str, dict] = {}
@@ -130,6 +135,31 @@ async def cb_new_qr(c: Client, q: CallbackQuery):
         )
     await q.answer("Generated a new QR with a new Id.")
 
+
+# --- tiny helpers ---
+
+def _kb_after_paid(token: str, upi_link: str) -> InlineKeyboardMarkup:
+    """User keypad after clicking Paid: New QR + Pay Link + Support."""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🔄 New QR", callback_data=f"addfunds:newqr:{token}"),
+            InlineKeyboardButton("💳 Pay Link", url=upi_link),
+        ],
+        [InlineKeyboardButton("🆘 Support", url=SUPPORT_LINK)]
+    ])
+
+def _admin_review_kb(token: str, user_id: int) -> InlineKeyboardMarkup:
+    """Admin keypad: Accept / Reject / Contact User."""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ ACCEPT", callback_data=f"fund:accept:{token}"),
+            InlineKeyboardButton("❌ REJECT", callback_data=f"fund:reject:{token}")
+        ],
+        [InlineKeyboardButton("👤 CONTACT USER", url=f"tg://user?id={user_id}")]
+    ])
+
+# =============== USER: Paid pressed ===============
+
 @Client.on_callback_query(filters.regex(r"^addfunds:paid:"))
 async def cb_paid(c: Client, q: CallbackQuery):
     token = q.data.split(":")[-1]
@@ -138,27 +168,182 @@ async def cb_paid(c: Client, q: CallbackQuery):
         await q.answer("Session expired. Please run again.", show_alert=True)
         return
 
-    try:
-        await q.message.edit_caption(_caption(state["pay_id"]) + "\n\n⏳ Verifying payment…")
-        await q.message.edit_reply_markup(None)
-    except Exception:
-        pass
-    finally:
-        del ADD_FUNDS_STATE[token]
+    # Ensure user_id is tracked
+    user_id = state.get("user_id") or q.from_user.id
+    state["user_id"] = user_id
 
-    await q.answer("We’ll notify you after confirmation.")
+    # Build pay link for the post-paid UI
+    upi_link = _make_upi_link(state["upi"], state["pay_id"], state.get("amount"))
+
+    # Remove the QR photo message if possible; otherwise strip buttons
     try:
-        user = await c.get_users(q.message.chat.id)
-        username = user.username if user.username else "NO USERNAME"
-        firstname = user.first_name if user.first_name else "No Name"
-        lastname = user.last_name if user.last_name else ''
-    except:
-        user,username,firstname,lastname = None,None,None,None
-    string = "**NEW USER FUND ADD REQUEST**" + f'\n **Username**: @{username} \n **Name**: {firstname} {lastname} \n [link](tg://user?id={q.message.chat.id})'
+        await q.message.delete()
+    except Exception:
+        try:
+            await q.message.edit_caption(f"{_caption(state['pay_id'])}\n\n⏳ Verifying payment…")
+            await q.message.edit_reply_markup(None)
+        except Exception:
+            pass
+
+    # Send a clean text-only message to the user with controls
+    user_text = (
+        "<b>Payment Submitted</b>\n"
+        f"🆔 <b>Id:</b> <code>{state['pay_id']}</code>\n\n"
+        "Your fund add request has been sent to admin.\n"
+        "We’ll notify you after confirmation.\n\n"
+        "If you haven’t paid yet, use the Pay Link below."
+    )
+    await c.send_message(
+        chat_id=q.message.chat.id,
+        text=user_text,
+        reply_markup=_kb_after_paid(token, upi_link),
+        parse_mode=PM.HTML
+    )
+    await q.answer("We’ll notify you after confirmation.", show_alert=True)
+
+    # Notify admins with action buttons
+    # Try to enrich user identity
+    try:
+        user = await c.get_users(user_id)
+        uname = f"@{user.username}" if user and user.username else "(no username)"
+        fname = user.first_name or "No Name"
+        lname = user.last_name or ""
+    except Exception:
+        uname, fname, lname = "(unknown)", "No Name", ""
+
+    ts = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+    amt_str = f"{state['amount']}" if state.get("amount") is not None else "—"
+
+    admin_text = (
+        "<b>🆕 FUND ADD REQUEST</b>\n"
+        f"• User: <a href='tg://user?id={user_id}'>{fname} {lname}</a> (<code>{user_id}</code>)\n"
+        f"• Username: {uname}\n"
+        f"• UPI: <code>{state['upi']}</code>\n"
+        f"• Amount: <b>{amt_str}</b>\n"
+        f"• Id: <code>{state['pay_id']}</code>\n"
+        f"• Time (IST): <code>{ts}</code>"
+    )
+
     try:
         for admin in list_admins():
-            await c.send_message(chat_id = admin,text = string)
-    except:
-        await c.send_messages(chat_id=5748109942,text = string)
+            try:
+                await c.send_message(
+                    chat_id=admin,
+                    text=admin_text,
+                    reply_markup=_admin_review_kb(token, user_id),
+                    parse_mode=PM.HTML,
+                    disable_web_page_preview=True
+                )
+            except Exception:
+                pass
+    except Exception:
+        # Optional fallback: send to a single owner id if you keep one
+        pass
+
+# =============== ADMIN: Accept / Reject ===============
+
+@Client.on_callback_query(filters.regex(r"^fund:(accept|reject):"))
+async def cb_fund_review(c: Client, q: CallbackQuery):
+    _, action, token = q.data.split(":")
+    state = ADD_FUNDS_STATE.get(token)
+    if not state:
+        await q.answer("This request has expired or was already handled.", show_alert=True)
+        return
+
+    user_id = state.get("user_id")
+    pay_id = state.get("pay_id")
+    amt = state.get("amount")
+
+    # Edit the admin card to lock buttons + show status
+    base_text = q.message.text or q.message.caption or ""
+    status_line = "✅ <b>ACCEPTED</b>" if action == "accept" else "❌ <b>REJECTED</b>"
+    try:
+        await q.message.edit_text(
+            base_text + f"\n\n<b>Status:</b> {status_line}",
+            parse_mode=PM.HTML,
+            disable_web_page_preview=True
+        )
+    except Exception:
+        try:
+            await q.message.edit_reply_markup(None)
+        except Exception:
+            pass
+
+    if action == "accept":
+        # Auto-credit if amount is known; else just notify
+        if amt is not None:
+            try:
+                add_balance(int(user_id), float(amt))
+                credited = True
+            except Exception:
+                credited = False
+        else:
+            credited = False
+
+        user_msg = (
+            "✅ <b>Funds Approved</b>\n"
+            f"🆔 <b>Id:</b> <code>{pay_id}</code>\n"
+        )
+        if credited:
+            user_msg += f"💰 <b>Amount credited:</b> <code>{amt}</code>\n"
+        else:
+            user_msg += "💬 Your payment was approved. Balance will reflect shortly.\n"
+
+        await c.send_message(user_id, user_msg, parse_mode=PM.HTML)
+
+        await q.answer("Approved.", show_alert=False)
+
+    else:  # reject
+        user_msg = (
+            "❌ <b>Fund Request Rejected</b>\n"
+            f"🆔 <b>Id:</b> <code>{pay_id}</code>\n\n"
+            "If this is a mistake, contact support."
+        )
+        await c.send_message(
+            user_id,
+            user_msg,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🆘 Support", url=SUPPORT_LINK)]]),
+            parse_mode=PM.HTML
+        )
+        await q.answer("Rejected.", show_alert=False)
+
+    # Cleanup the token to avoid re-use
+    try:
+        del ADD_FUNDS_STATE[token]
+    except KeyError:
+        pass
+
+# @Client.on_callback_query(filters.regex(r"^addfunds:paid:"))
+# async def cb_paid(c: Client, q: CallbackQuery):
+#     token = q.data.split(":")[-1]
+#     state = ADD_FUNDS_STATE.get(token)
+#     if not state:
+#         await q.answer("Session expired. Please run again.", show_alert=True)
+#         return
+
+#     try:
+#         await q.message.edit_caption(_caption(state["pay_id"]) + "\n\n⏳ Verifying payment…")
+#         await q.message.edit_reply_markup(None)
+#     except Exception:
+#         pass
+#     finally:
+#         del ADD_FUNDS_STATE[token]
+
+#     await q.answer("We’ll notify you after confirmation.",show_alert=True)
+#     await q.message.reply_text("**YOUR FUND ADD REQUEST HAS BEEN SENT TO ADMIN.We’ll notify you after confirmation.**")
+#     try:
+#         user = await c.get_users(q.message.chat.id)
+#         username = user.username if user.username else "NO USERNAME"
+#         firstname = user.first_name if user.first_name else "No Name"
+#         lastname = user.last_name if user.last_name else ''
+#     except:
+#         user,username,firstname,lastname = None,None,None,None
+#     string = "**NEW USER FUND ADD REQUEST**" + f''''\n **Username**: @{username} \n **Name**: {firstname} {lastname} \n [link](tg://user?id={q.message.chat.id}) \n\n 
+#             **TIME:** `{india_time.strftime("%Y-%m-%d %H:%M:%S")}`'''
+#     try:
+#         for admin in list_admins():
+#             await c.send_message(chat_id = admin,text = string)
+#     except:
+#         await c.send_messages(chat_id=5748109942,text = string)
         
         
