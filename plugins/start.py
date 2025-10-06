@@ -25,11 +25,14 @@ async def check_user_channel_membership(client: Client, user_id: int, CHANNEL_ID
             status = getattr(m, "status", None)
             # consider these as joined
             if str(status) not in ("member", "administrator", "creator"):
+                print(f"User {user_id} status in channel {channel_id}: {status}")
                 not_joined.append(channel_id)
         except UserNotParticipant:
+            print('block2')
             not_joined.append(channel_id)
         except (ChatAdminRequired, ChatWriteForbidden):
             # Bot lacks rights/visibility → treat as missing (safer) but still show best-effort link
+            print('block3')
             not_joined.append(channel_id)
         except Exception as e:
             print(f"Error checking {channel_id}: {e}")
