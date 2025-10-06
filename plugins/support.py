@@ -2,8 +2,8 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-
-from pyromod import Client, filters
+from pyrogram import filters
+from pyromod import Client
 from pyrogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 )
